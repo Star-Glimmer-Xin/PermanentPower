@@ -1,0 +1,19 @@
+{
+  "id": "PermanentPower",
+  "name": "PermanentPower",
+  "pck_name": "PermanentPower",
+  "author": "StarGlimmer",
+  "description": "能力牌跨战斗生效",
+  "version": "0.1.0",
+  "has_pck": false,
+  "has_dll": true,
+  "affects_gameplay": true,
+  "min_game_version": "0.111.0",
+  "dependencies": [
+    {
+      "id": "STS2-RitsuLib",
+      "min_version": "0.5.20",
+      "version": "0.5.20"
+    }
+  ]
+}
