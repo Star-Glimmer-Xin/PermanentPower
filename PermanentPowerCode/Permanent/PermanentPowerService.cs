@@ -1,5 +1,6 @@
 using System.Reflection;
 using PermanentPower.Config;
+using PermanentPower.Patches;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Commands;
 using MegaCrit.Sts2.Core.Entities.Cards;
@@ -31,6 +32,7 @@ internal static class PermanentPowerService
     internal static void Install()
     {
         PermanentPowerStore.Initialize();
+        EndTurnSuppression.Install();
         InstallCardPlayHook();
         InstallCombatHooks();
     }
@@ -197,8 +199,12 @@ internal static class PermanentPowerService
                 return false;
             }
 
-            await (Task)onPlay.Invoke(card, [context, play])!;
-            if (!player.Creature.IsDead) card.InvokeExecutionFinished();
+            // 跳过卡牌自带的结束回合。
+            using (EndTurnSuppression.Begin())
+            {
+                await (Task)onPlay.Invoke(card, [context, play])!;
+                if (!player.Creature.IsDead) card.InvokeExecutionFinished();
+            }
         }
         finally
         {
