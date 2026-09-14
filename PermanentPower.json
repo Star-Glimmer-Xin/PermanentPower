@@ -4,7 +4,7 @@
   "pck_name": "PermanentPower",
   "author": "StarGlimmer",
   "description": "能力牌跨战斗永久生效",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "has_pck": false,
   "has_dll": true,
   "affects_gameplay": true,
