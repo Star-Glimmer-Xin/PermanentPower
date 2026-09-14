@@ -37,6 +37,14 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- 设置页文案。用 LogicalName 把路径拍平：RitsuLib 的 I18N 只认
+             「{folder}.{语言}.json」这种扁平资源名，语言那一段里不能再有别的点。
+             详见 PermanentPowerCode/Localization/ModText.cs。 -->
+        <EmbeddedResource Include="PermanentPowerCode\Localization\zhs.json" LogicalName="PermanentPower.Localization.zhs.json"/>
+        <EmbeddedResource Include="PermanentPowerCode\Localization\eng.json" LogicalName="PermanentPower.Localization.eng.json"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <Publicize Include="sts2" IncludeVirtualMembers="false" IncludeCompilerGeneratedMembers="false"/>
     </ItemGroup>
 

@@ -1,0 +1,12 @@
+{
+    "pp.section.general": "通用",
+    "pp.toggle.enabled": "启用跨战斗生效",
+    "pp.toggle.enabled.hint": "关闭后，能力牌不再跨战斗生效",
+    "pp.toggle.modcards": "对 mod 卡牌生效",
+    "pp.toggle.modcards.hint": "关闭后，其它 mod 添加的卡牌不再跨战斗生效",
+    "pp.section.cards": "单卡设置",
+    "pp.section.cards.empty": "没有找到任何能力牌。",
+    "pp.section.cards.title": "{0}（{1}）",
+    "pp.group.colorless": "无色",
+    "pp.group.unclassified": "未分类"
+}

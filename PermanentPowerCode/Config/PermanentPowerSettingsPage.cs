@@ -1,6 +1,8 @@
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Models;
+using PermanentPower.Localization;
 using STS2RitsuLib;
+using STS2RitsuLib.Models;
 using STS2RitsuLib.Settings;
 using STS2RitsuLib.Utils.Persistence;
 
@@ -147,19 +149,19 @@ internal static class PermanentPowerSettingsPage
     {
         page.AddSection("general", section =>
         {
-            section.WithTitle(ModSettingsText.Literal("通用"));
+            section.WithTitle(ModText.Text(ModText.SectionGeneral, "通用"));
 
             section.AddToggle(
                 "enabled",
-                ModSettingsText.Literal("启用跨战斗生效"),
+                ModText.Text(ModText.Enabled, "启用跨战斗生效"),
                 Field(static s => s.Enabled, static (s, v) => s.Enabled = v),
-                ModSettingsText.Literal("关闭后，能力牌不再跨战斗生效"));
+                ModText.Text(ModText.EnabledHint, "关闭后，能力牌不再跨战斗生效"));
 
             section.AddToggle(
                 "affectModCards",
-                ModSettingsText.Literal("对 mod 卡牌生效"),
+                ModText.Text(ModText.ModCards, "对 mod 卡牌生效"),
                 Field(static s => s.AffectModCards, static (s, v) => s.AffectModCards = v),
-                ModSettingsText.Literal("关闭后，其它 mod 添加的卡牌不再跨战斗生效"));
+                ModText.Text(ModText.ModCardsHint, "关闭后，其它 mod 添加的卡牌不再跨战斗生效"));
         });
     }
 
@@ -178,8 +180,8 @@ internal static class PermanentPowerSettingsPage
         if (groups.Count == 0)
         {
             page.AddSection("cards_empty", section => section
-                .WithTitle(ModSettingsText.Literal("单卡设置"))
-                .AddParagraph("emptyNote", ModSettingsText.Literal("没有找到任何能力牌。")));
+                .WithTitle(ModText.Text(ModText.SectionCards, "单卡设置"))
+                .AddParagraph("emptyNote", ModText.Text(ModText.SectionCardsEmpty, "没有找到任何能力牌。")));
             return;
         }
 
@@ -192,9 +194,8 @@ internal static class PermanentPowerSettingsPage
 
             page.AddSection($"cards_{i}", section =>
             {
-                // 标题惰性求值：注册时本地化可能还没就绪。
-                section.WithTitle(ModSettingsText.Dynamic(
-                    () => $"{DisplayNameOf(groupKey)}（{cards.Count}）"));
+                // 标题惰性求值：注册时本地化可能还没就绪，而且卡池名要跟着当前语言走。
+                section.WithTitle(ModText.CardsSectionTitle(() => DisplayNameOf(groupKey), cards.Count));
                 section.Collapsible(startCollapsed: true);
 
                 foreach (var card in cards)
@@ -256,8 +257,8 @@ internal static class PermanentPowerSettingsPage
     /// </summary>
     private static string DisplayNameOf(string groupKey)
     {
-        if (groupKey == ColorlessKey) return "无色";
-        if (groupKey == UnclassifiedKey) return "未分类";
+        if (groupKey == ColorlessKey) return ModText.Get(ModText.GroupColorless, "无色");
+        if (groupKey == UnclassifiedKey) return ModText.Get(ModText.GroupUnclassified, "未分类");
 
         try
         {
@@ -269,8 +270,14 @@ internal static class PermanentPowerSettingsPage
                 var character = ModelDb.AllCharacters.FirstOrDefault(
                     c => ReferenceEquals(c.CardPool, pool));
 
-                var characterName = character?.Title?.GetFormattedText();
-                if (!string.IsNullOrWhiteSpace(characterName)) return characterName!;
+                // 用 RitsuLib 的标题解析：它先走「注册过的解析器」、再回落原版模型族，
+                // 直接读 character.Title 拿不到 mod 角色注册的标题覆盖。
+                if (character is not null && character.TryResolveTitle(out var characterTitle))
+                {
+                    var name = characterTitle.GetFormattedText();
+                    if (!string.IsNullOrWhiteSpace(name)) return name;
+                }
+
                 if (!string.IsNullOrWhiteSpace(pool.Title)) return pool.Title;
             }
         }
