@@ -3,14 +3,13 @@ using STS2RitsuLib.RunData;
 
 namespace PermanentPower.Permanent;
 
-/// <summary>一张已固化的能力牌。存的是**卡牌身份 + 升级层数**，不是「它施加了什么」——
-/// 重放时据此把这张牌原样重建、让它自己再跑一遍效果，所以任何效果都能覆盖。</summary>
-/// <param name="Category">卡牌的 ModelId.Category，例如 CARD</param>
-/// <param name="Entry">卡牌的 ModelId.Entry，例如 CAPACITOR</param>
-/// <param name="Upgrades">已升级层数，重建时逐级还原</param>
+/// <summary>一条固化记录：卡牌 id 与升级层数。</summary>
+/// <param name="Category">卡牌 ModelId.Category，例如 CARD</param>
+/// <param name="Entry">卡牌 ModelId.Entry，例如 CAPACITOR</param>
+/// <param name="Upgrades">已升级层数</param>
 internal sealed record PermanentPowerCard(string Category, string Entry, int Upgrades)
 {
-    /// <summary>编码成单个字符串，便于在 run 存档里以 List&lt;string&gt; 形式保存。</summary>
+    /// <summary>存档字符串的字段分隔符。</summary>
     private const char Separator = '|';
 
     internal string Encode() => $"{Category}{Separator}{Entry}{Separator}{Upgrades}";
@@ -27,17 +26,14 @@ internal sealed record PermanentPowerCard(string Category, string Entry, int Upg
     }
 }
 
-/// <summary>
-/// 跨战斗存储：把「已经固化的能力牌」存进本局（run）存档。
-/// 用 RitsuLib 的 <see cref="RunSavedData{T}"/>，随本局存档一起读写，所以中断后继续游戏也能保留。
-/// </summary>
+/// <summary>固化卡牌的 run 存档读写。</summary>
 internal static class PermanentPowerStore
 {
     private const string SlotKey = "permanentPowerCards";
 
     private static RunSavedData<List<string>>? _slot;
 
-    /// <summary>在 <c>Entry.Initialize()</c> 里调用一次，注册存档槽位。</summary>
+    /// <summary>注册 run 存档槽位，启动时调用一次。</summary>
     internal static void Initialize()
     {
         _slot = RunSavedDataStore
@@ -47,7 +43,7 @@ internal static class PermanentPowerStore
         Entry.Logger.Info("[PermanentPower] 常驻能力存档槽已注册。");
     }
 
-    /// <summary>读出并解码全部固化卡牌。顺序 = 玩家打出的先后顺序，重放依赖这个顺序。</summary>
+    /// <summary>按记录顺序读出并解码全部固化卡牌。</summary>
     internal static List<PermanentPowerCard> Load(RunState run)
     {
         var result = new List<PermanentPowerCard>();
@@ -62,7 +58,7 @@ internal static class PermanentPowerStore
         return result;
     }
 
-    /// <summary>追加一条记录。不做任何去重 / 合并 —— 玩家打出几张就记几条，忠实重放。</summary>
+    /// <summary>追加一条固化记录，不去重。</summary>
     internal static void Append(RunState run, PermanentPowerCard card)
     {
         if (_slot is null)

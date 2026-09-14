@@ -18,28 +18,21 @@
         <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(Sts2Dir)\data_sts2_windows_x86_64</Sts2DataDir>
         <ModOutputDir>$(Sts2Dir)\mods\$(MSBuildProjectName)\</ModOutputDir>
         <ModPckPath>$(ModOutputDir)$(MSBuildProjectName).pck</ModPckPath>
-        <!-- 本机测试时 RitsuLib 包/构建逻辑会使用这个目录把 RitsuLib 部署到游戏 mods/STS2-RitsuLib。 -->
-        <!-- Local test builds use this directory when RitsuLib package/build logic deploys RitsuLib to game mods/STS2-RitsuLib. -->
+        <!-- RitsuLib 构建逻辑部署运行时依赖的目标目录。 -->
         <RitsuLibDeployDir Condition="'$(RitsuLibDeployDir)' == ''">$(Sts2Dir)\mods\STS2-RitsuLib</RitsuLibDeployDir>
         <CopyModOnBuild Condition="'$(CopyModOnBuild)' == ''">true</CopyModOnBuild>
-        <!-- 本 mod 是纯代码 mod（无美术资源），不需要导出 pck。
-             日后若加了 res:// 资源，删掉这一行即可恢复导出（并把 manifest 的 has_pck 改回 true）。 -->
+        <!-- 纯代码 mod，不导出 pck。若加入 res:// 资源，删除此行并恢复 manifest 的 has_pck。 -->
         <RunPckExport>false</RunPckExport>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all"/>
-        <!-- 主线 RitsuLib（STS2 0.105.0+）。
-             刻意钉死具体版本：浮动 "*" 会在重新构建时静默把编译目标换成新版，
-             而玩家侧装的运行时可能仍是旧版 —— 版本对不上容易出诡异问题。
-             升级时请同步改三处：这里 + manifest 的 min_version + manifest 的 version。 -->
+        <!-- 升级时请同步改三处：这里 + manifest 的 min_version + manifest 的 version。 -->
         <PackageReference Include="STS2.RitsuLib" Version="0.5.20" GeneratePathProperty="true"/>
     </ItemGroup>
 
     <ItemGroup>
-        <!-- 设置页文案。用 LogicalName 把路径拍平：RitsuLib 的 I18N 只认
-             「{folder}.{语言}.json」这种扁平资源名，语言那一段里不能再有别的点。
-             详见 PermanentPowerCode/Localization/ModText.cs。 -->
+        <!-- 设置页文案。详见 PermanentPowerCode/Localization/ModText.cs。 -->
         <EmbeddedResource Include="PermanentPowerCode\Localization\zhs.json" LogicalName="PermanentPower.Localization.zhs.json"/>
         <EmbeddedResource Include="PermanentPowerCode\Localization\eng.json" LogicalName="PermanentPower.Localization.eng.json"/>
     </ItemGroup>
@@ -55,8 +48,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <!-- 中文：排除 Godot、IDE 和构建输出目录，避免本地生成文件参与编译。 -->
-        <!-- English: Exclude Godot, IDE, and build output directories so local generated files are not compiled. -->
+        <!-- 排除 Godot、IDE 与构建输出目录。 -->
         <Compile Remove=".godot/**;.idea/**;.vs/**;bin/**;obj/**"/>
         <EmbeddedResource Remove=".godot/**;.idea/**;.vs/**;bin/**;obj/**"/>
         <None Remove=".godot/**;.idea/**;.vs/**;bin/**;obj/**"/>

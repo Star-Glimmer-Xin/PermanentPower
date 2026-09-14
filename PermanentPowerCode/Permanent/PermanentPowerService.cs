@@ -13,30 +13,18 @@ using STS2RitsuLib;
 namespace PermanentPower.Permanent;
 
 /// <summary>
-/// 核心机制：玩家打出的能力牌，其效果变成跨战斗常驻。
-///
-/// 1. 打出能力牌 → 记下这张牌的 **id 与升级层数**；若它出自卡组，再把卡组原牌移除；
-/// 2. 之后每场战斗的**第一个玩家回合开始时**，按记录顺序把每张牌重建出来，让它自己再跑一遍效果。
-///
-/// 记录不区分来源：卡组打出的、药水给的、其它效果临时生成的能力牌，效果一样永久化。
-/// 只有「卡组原牌」才需要（也只能）删 —— 临时牌本来就没有卡组原牌。
-///
-/// 为什么记「卡牌」而不是记「它施加了什么能力」：能力牌的效果不一定是能力 ——
-/// 「扩容」加的是充能球栏位、「暴涨」还会扣一个栏位，只盯着能力层数看会把它们整个漏掉。
-/// 重放卡牌自身的效果天然覆盖所有情况，也不用区分「这个改动是谁造成的」。
-///
-/// 重放时机刻意不用战斗开始：卡牌效果可能依赖 <c>PlayerCombatState</c>
-/// （充能球栏位就挂在它上面），战斗刚开场时它未必就绪。
+/// 核心机制：打出的能力牌效果跨战斗常驻。
+/// 记录卡牌 id 与升级层数，并移除卡组中的原牌；每场战斗的首个玩家回合按记录顺序重放。
 /// </summary>
 internal static class PermanentPowerService
 {
-    /// <summary>重放期间置位，避免重放过程中产生的出牌被再记一遍。</summary>
+    /// <summary>重放进行中。用于避免重放产生的出牌被重复记录。</summary>
     private static bool _isReplaying;
 
-    /// <summary>本场战斗是否已经重放过。</summary>
+    /// <summary>本场战斗是否已重放。</summary>
     private static bool _replayedThisCombat;
 
-    /// <summary><c>CardModel.OnPlay</c> 是私有的，只能反射调用。</summary>
+    /// <summary>基类 <c>OnPlay</c>，仅在派生类未重写时使用。</summary>
     private static readonly MethodInfo? BaseOnPlay = typeof(CardModel)
         .GetMethod("OnPlay", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -53,11 +41,7 @@ internal static class PermanentPowerService
         RitsuLibFramework.SubscribeLifecycle<CardPlayedEvent>(
             _evt => { _ = OnCardPlayedAsync(_evt); });
 
-    /// <summary>
-    /// 打出能力牌 → 存下这张牌、从卡组移除。
-    ///
-    /// ⚠️ 挂在游戏出牌流程上，任何异常都会打断游戏，必须整体兜住。
-    /// </summary>
+    /// <summary>打出能力牌时记录该牌，并移除对应的卡组原牌。</summary>
     private static async Task OnCardPlayedAsync(CardPlayedEvent evt)
     {
         try
@@ -69,8 +53,6 @@ internal static class PermanentPowerService
             if (!PermanentPowerSettingsPage.IsCardAllowed(card)) return;
             if (evt.CombatState?.RunState is not RunState run) return;
 
-            // 记的是这张牌本身（战斗中的实例就够），**来源无所谓** ——
-            // 药水、「创造性 AI」给的能力牌，效果一样要永久化。
             var id = card.CanonicalInstance.Id;
             PermanentPowerStore.Append(run, new PermanentPowerCard(
                 id.Category, id.Entry, card.CurrentUpgradeLevel));
@@ -79,7 +61,7 @@ internal static class PermanentPowerService
                 $"[PermanentPower] 固化能力牌「{card.Title}」" +
                 $"（{id.Category}/{id.Entry}，{card.CurrentUpgradeLevel} 级升级）");
 
-            // 只有出自卡组的那一张才需要删；临时生成的牌没有卡组原牌可删。
+            // 仅出自卡组的牌存在卡组原牌。
             if (!TryGetDeckCard(card, out var deckCard))
             {
                 Entry.Logger.Info($"[PermanentPower] 「{card.Title}」不是从卡组打出的，无卡组原牌可删");
@@ -95,11 +77,6 @@ internal static class PermanentPowerService
         }
     }
 
-    /// <summary>
-    /// 只认**卡组里的原牌**。多这几道校验是为了避免「已经不在卡组了还去删」——
-    /// 回响形态会把同一张牌再打一次，第二次必须在这里被挡掉，
-    /// 否则 <c>RemoveFromDeck</c> 会抛 <c>NullReferenceException</c>。
-    /// </summary>
     private static bool TryGetDeckCard(CardModel combatCard, out CardModel? deckCard)
     {
         deckCard = combatCard.DeckVersion;
@@ -115,7 +92,6 @@ internal static class PermanentPowerService
 
     private static void InstallCombatHooks()
     {
-        // 新战斗开始 → 允许重放一次。
         RitsuLibFramework.SubscribeLifecycle<CombatStartingEvent>(_evt => _replayedThisCombat = false);
 
         RitsuLibFramework.SubscribeLifecycle<PlayerTurnStartedEvent>(
@@ -182,7 +158,7 @@ internal static class PermanentPowerService
         ApplyUpgradeLevels(card, stored.Upgrades);
         card.SetToFreeThisCombat();
 
-        // 卡牌不在任何牌堆里时效果跑不起来，先临时放进 Play 堆，跑完再撤掉。
+        // 无牌堆时效果无法执行，临时放入 Play 堆，重放结束后移除。
         var addedToPlayPile = false;
         if (card.Pile is null)
         {
@@ -237,10 +213,7 @@ internal static class PermanentPowerService
         return true;
     }
 
-    /// <summary>
-    /// 目标只在需要时才挑：能给自己就给自己，否则挑第一个活着的敌人。
-    /// 原始目标没法跨战斗保留（那场战斗的敌人早没了），所以这里只能取个确定的猜法。
-    /// </summary>
+    /// <summary>按目标类型选取重放目标：己方为自身，敌方为第一个存活敌人。</summary>
     private static Creature? PickTarget(CardModel card, Player player)
     {
         try
@@ -259,10 +232,7 @@ internal static class PermanentPowerService
         }
     }
 
-    /// <summary>
-    /// 找这张牌最派生的那个 <c>OnPlay</c>：<c>DeclaredOnly</c> 逐层往上，
-    /// 拿到的是卡牌自己重写的版本，而不是基类的空实现。
-    /// </summary>
+    /// <summary>沿继承链查找最派生的 <c>OnPlay</c> 实现。</summary>
     private static MethodInfo? GetOnPlayMethod(CardModel card, int index)
     {
         for (var type = card.GetType(); type is not null; type = type.BaseType)
@@ -293,7 +263,7 @@ internal static class PermanentPowerService
 
     // ───────────────────────────── 兜底 ─────────────────────────────
 
-    /// <summary>记日志且绝不重抛 —— 挂进游戏流程的方法都靠它兜住。</summary>
+    /// <summary>记录异常并吞掉，不向外抛出。</summary>
     private static void Swallow(Exception ex, string where)
     {
         try
@@ -303,7 +273,7 @@ internal static class PermanentPowerService
         }
         catch
         {
-            // 连日志都写不进去就只能算了 —— 绝不能往外抛。
+            // 日志写入失败时同样不得外抛。
         }
     }
 }

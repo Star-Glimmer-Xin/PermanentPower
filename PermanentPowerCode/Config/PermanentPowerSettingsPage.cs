@@ -9,22 +9,19 @@ using STS2RitsuLib.Utils.Persistence;
 namespace PermanentPower.Config;
 
 /// <summary>
-/// 设置页。用 RitsuLib 的代码流式注册构建。
-///
-/// 整页都延到 <c>ModelRegistryInitializedEvent</c> 之后才注册：单卡列表要枚举
-/// <c>ModelDb.AllCards</c>，而它在 <c>Entry.Initialize()</c> 阶段还不可用
-/// （会抛 <c>KeyNotFoundException: 'CHARACTER.IRONCLAD' not present</c>）。
+/// 设置页，通过 RitsuLib 代码流式注册构建。
+/// 须在 <c>ModelRegistryInitializedEvent</c> 之后注册，单卡列表依赖 <c>ModelDb.AllCards</c>。
 /// </summary>
 internal static class PermanentPowerSettingsPage
 {
     private const string DataKey = "settings";
     private const string PageId = "main";
 
-    // 分组的稳定 key（与语言无关）；显示名另行惰性解析。
+    // 特殊分组的稳定 key，显示名另行本地化解析。
     private const string ColorlessKey = "<colorless>";
     private const string UnclassifiedKey = "<unclassified>";
 
-    /// <summary>分类固定顺序。按卡池 id 里的英文标识匹配，不受游戏语言影响。</summary>
+    /// <summary>分类的固定排序，按卡池 id 匹配，与语言无关。</summary>
     private static readonly string[] PoolOrder =
     [
         "IRONCLAD",   // 铁甲战士
@@ -36,12 +33,12 @@ internal static class PermanentPowerSettingsPage
 
     private static readonly PermanentPowerSettings Fallback = new();
 
-    /// <summary>读整份配置用的绑定；写入由各字段自己的绑定负责。</summary>
+    /// <summary>整份配置的读取绑定。</summary>
     private static ModSettingsValueBinding<PermanentPowerSettings, PermanentPowerSettings>? _root;
 
     private static bool _pageRegistered;
 
-    /// <summary>当前配置。读取失败时退回默认值，绝不抛异常（会被能力施加路径调用）。</summary>
+    /// <summary>当前配置，读取失败时返回默认值。</summary>
     internal static PermanentPowerSettings Current
     {
         get
@@ -59,7 +56,7 @@ internal static class PermanentPowerSettingsPage
         }
     }
 
-    /// <summary>这张能力牌是否允许触发常驻效果。</summary>
+    /// <summary>判断该能力牌是否启用常驻效果。</summary>
     internal static bool IsCardAllowed(CardModel card)
     {
         try
@@ -69,7 +66,7 @@ internal static class PermanentPowerSettingsPage
             if (!settings.Enabled) return false;
             if (!settings.AffectModCards && !IsVanillaCard(card)) return false;
 
-            // 没被显式配置过的卡默认生效。
+            // 未配置的卡默认启用。
             var id = IdOf(card);
             return !settings.CardOverrides.TryGetValue(id, out var allowed) || allowed;
         }
@@ -82,7 +79,7 @@ internal static class PermanentPowerSettingsPage
 
     internal static void Register()
     {
-        // 数据可以早注册，页面必须等 ModelDb 就绪。两者各自兜底，互不拖累。
+        // 数据可提前注册，页面须等 ModelDb 就绪。
         TryRegisterData();
 
         RitsuLibFramework.SubscribeLifecycle<ModelRegistryInitializedEvent>(_ => TryRegisterPage());
@@ -120,7 +117,7 @@ internal static class PermanentPowerSettingsPage
 
         try
         {
-            // 此时存档可能还没就绪，所以只建绑定、不立刻 Read()。
+            // 存档可能尚未就绪，此处只建绑定，不立即读取。
             _root = new ModSettingsValueBinding<PermanentPowerSettings, PermanentPowerSettings>(
                 Entry.ModId, DataKey, SaveScope.Profile,
                 static s => s,
@@ -165,7 +162,7 @@ internal static class PermanentPowerSettingsPage
         });
     }
 
-    /// <summary>「单卡设置」：按卡池（角色 / 无色）分组，每组一个可折叠区块。</summary>
+    /// <summary>按卡池分组生成「单卡设置」可折叠区块。</summary>
     private static void AddCardSections(ModSettingsPageBuilder page)
     {
         var powerCards = SafeAllPowerCards();
@@ -194,7 +191,7 @@ internal static class PermanentPowerSettingsPage
 
             page.AddSection($"cards_{i}", section =>
             {
-                // 标题惰性求值：注册时本地化可能还没就绪，而且卡池名要跟着当前语言走。
+                // 标题惰性求值以跟随当前语言。
                 section.WithTitle(ModText.CardsSectionTitle(() => DisplayNameOf(groupKey), cards.Count));
                 section.Collapsible(startCollapsed: true);
 
@@ -202,7 +199,7 @@ internal static class PermanentPowerSettingsPage
                 {
                     var id = IdOf(card);
 
-                    // 用原生 AddToggle，样式才能和 RitsuLib 其它条目一致。
+                    // 使用原生 AddToggle 以保持样式一致。
                     section.AddToggle(
                         "card_" + id.Replace('/', '_'),
                         ModSettingsText.Dynamic(() => card.Title ?? id),
@@ -218,11 +215,11 @@ internal static class PermanentPowerSettingsPage
 
     private static string IdOf(CardModel card) => $"{card.Id.Category}/{card.Id.Entry}";
 
-    /// <summary>是不是原版卡牌。用 Assembly 判断，比 id 前缀可靠。</summary>
+    /// <summary>判断是否原版卡牌。</summary>
     private static bool IsVanillaCard(CardModel card) =>
         card.GetType().Assembly == typeof(CardModel).Assembly;
 
-    /// <summary>与语言无关的分组 key。无色卡池统一合并成一个分类。</summary>
+    /// <summary>计算分组的稳定 key，无色卡池合并为一项。</summary>
     private static string GroupKeyOf(CardModel card)
     {
         try
@@ -249,12 +246,10 @@ internal static class PermanentPowerSettingsPage
             if (groupKey.Contains(PoolOrder[i], StringComparison.OrdinalIgnoreCase)) return i;
         }
 
-        return 500; // 其它（含 mod 角色）排在后半段
+        return 500; // 其它卡池（含 mod 角色）
     }
 
-    /// <summary>
-    /// 分组 key → 显示名。优先用角色的本地化名字（<c>CharacterModel.Title</c>），拿不到再退回卡池名。
-    /// </summary>
+    /// <summary>分组 key 转显示名，优先角色名，其次卡池名。</summary>
     private static string DisplayNameOf(string groupKey)
     {
         if (groupKey == ColorlessKey) return ModText.Get(ModText.GroupColorless, "无色");
@@ -270,8 +265,7 @@ internal static class PermanentPowerSettingsPage
                 var character = ModelDb.AllCharacters.FirstOrDefault(
                     c => ReferenceEquals(c.CardPool, pool));
 
-                // 用 RitsuLib 的标题解析：它先走「注册过的解析器」、再回落原版模型族，
-                // 直接读 character.Title 拿不到 mod 角色注册的标题覆盖。
+                // 使用 RitsuLib 的标题解析器，以覆盖 mod 角色注册的标题。
                 if (character is not null && character.TryResolveTitle(out var characterTitle))
                 {
                     var name = characterTitle.GetFormattedText();
@@ -295,7 +289,7 @@ internal static class PermanentPowerSettingsPage
         catch { return string.Empty; }
     }
 
-    /// <summary>枚举所有能力牌。任何异常都吞掉并返回空表，避免影响游戏启动。</summary>
+    /// <summary>枚举所有能力牌，失败时返回空表。</summary>
     private static List<CardModel> SafeAllPowerCards()
     {
         try
@@ -311,7 +305,7 @@ internal static class PermanentPowerSettingsPage
         }
     }
 
-    /// <summary>为一个字段建绑定。所有字段共用同一个 dataKey + Profile 作用域。</summary>
+    /// <summary>为配置字段创建绑定，共用同一个 dataKey 与 Profile 作用域。</summary>
     private static IModSettingsValueBinding<TValue> Field<TValue>(
         Func<PermanentPowerSettings, TValue> getter,
         Action<PermanentPowerSettings, TValue> setter)
