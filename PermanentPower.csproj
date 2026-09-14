@@ -25,8 +25,6 @@
         <!-- 本 mod 是纯代码 mod（无美术资源），不需要导出 pck。
              日后若加了 res:// 资源，删掉这一行即可恢复导出（并把 manifest 的 has_pck 改回 true）。 -->
         <RunPckExport>false</RunPckExport>
-        <RunPckExport Condition="'$(RunPckExport)' == '' and '$(DesignTimeBuild)' != 'true'">true</RunPckExport>
-        <RunPckExport Condition="'$(RunPckExport)' == ''">false</RunPckExport>
     </PropertyGroup>
 
     <ItemGroup>

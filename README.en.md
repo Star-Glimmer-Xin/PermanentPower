@@ -28,6 +28,10 @@ Slay the Spire 2/
 
 The first launch asks whether to enable mods; say yes and restart once.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## Credits
 
 - [RitsuLib](https://github.com/BAKAOLC/STS2-RitsuLib) — mod framework

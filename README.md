@@ -28,6 +28,10 @@ Slay the Spire 2/
 
 首次启动会问是否启用 mod，选是之后重启一次。
 
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 致谢
 
 - [RitsuLib](https://github.com/BAKAOLC/STS2-RitsuLib) —— mod 框架
