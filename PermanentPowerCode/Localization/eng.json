@@ -1,10 +1,10 @@
 {
     "pp.section.general": "General",
-    "pp.toggle.enabled": "Permanent Power effects",
+    "pp.toggle.enabled": "Enable Permanent Power effects",
     "pp.toggle.enabled.hint": "When off, Power cards no longer stay in effect across combats",
-    "pp.toggle.modcards": "Apply to modded cards",
+    "pp.toggle.modcards": "Enable for modded cards",
     "pp.toggle.modcards.hint": "When off, Power cards added by other mods no longer stay in effect",
-    "pp.section.cards": "Per-card settings",
+    "pp.section.cards": "Individual Card Settings",
     "pp.section.cards.empty": "No Power cards found.",
     "pp.section.cards.title": "{0} ({1})",
     "pp.group.colorless": "Colorless",
