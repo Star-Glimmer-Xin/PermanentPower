@@ -41,7 +41,7 @@ internal static class EndTurnSuppression
             var prefix = new HarmonyMethod(typeof(EndTurnSuppression).GetMethod(
                 nameof(Prefix), BindingFlags.Static | BindingFlags.NonPublic));
 
-            new Harmony(Entry.ModId).Patch(target, prefix: prefix);
+            PatchHost.Harmony.Patch(target, prefix: prefix);
             Entry.Logger.Info("[PermanentPower] 结束回合抑制已安装。");
         }
         catch (Exception ex)
