@@ -15,7 +15,7 @@ namespace PermanentPower.Permanent;
 
 /// <summary>
 /// 核心机制：打出的能力牌效果跨战斗常驻。
-/// 记录卡牌 id 与升级层数，并移除卡组中的原牌；每场战斗的首个玩家回合按记录顺序重放。
+/// 记录卡牌 id 与升级层数，并移除卡组中的原牌；战斗开始时按记录顺序重放。
 /// </summary>
 internal static class PermanentPowerService
 {
@@ -33,7 +33,7 @@ internal static class PermanentPowerService
     {
         PermanentPowerStore.Initialize();
         EndTurnSuppression.Install();
-        PlayerTurnStartPatch.Install();
+        CombatStartReplayPatch.Install();
         InstallCardPlayHook();
         InstallCombatHooks();
     }
@@ -97,28 +97,30 @@ internal static class PermanentPowerService
         RitsuLibFramework.SubscribeLifecycle<CombatStartingEvent>(_evt => _replayedThisCombat = false);
 
     /// <summary>
-    /// 本场战斗首个玩家回合重放全部固化卡牌。
-    /// 由 <c>Hook.AfterPlayerTurnStart</c> 的后缀接入返回 Task，游戏会等待其完成。
+    /// 战斗开始时重放全部固化卡牌。
+    /// 由 <c>Hook.BeforeCombatStart</c> 的后缀接入返回 Task，游戏会等待其完成。
     /// </summary>
-    internal static async Task ReplayAtTurnStartAsync(
-        ICombatState combatState,
-        PlayerChoiceContext choiceContext,
-        Player player)
+    internal static async Task ReplayAtCombatStartAsync(ICombatState combatState)
     {
         try
         {
             if (_replayedThisCombat) return;
             if (combatState?.RunState is not RunState run) return;
 
-            // 本场战斗只重放一次，与是否有牌可放无关 —— 否则战斗中打出的牌会在下个回合被重放。
+            // 本场战斗只重放一次，与是否有牌可放无关。
             _replayedThisCombat = true;
 
             var stored = PermanentPowerStore.Load(run);
             if (stored.Count == 0)
             {
-                Entry.Logger.Info("[PermanentPower] 第一个玩家回合：本局还没有固化的卡牌。");
+                Entry.Logger.Info("[PermanentPower] 战斗开始：本局还没有固化的卡牌。");
                 return;
             }
+
+            var player = combatState.Players.FirstOrDefault(static p => !p.Creature.IsDead);
+            if (player is null) return;
+
+            var choiceContext = new BlockingPlayerChoiceContext();
 
             var applied = 0;
             _isReplaying = true;
@@ -138,7 +140,7 @@ internal static class PermanentPowerService
         }
         catch (Exception ex)
         {
-            Swallow(ex, nameof(ReplayAtTurnStartAsync));
+            Swallow(ex, nameof(ReplayAtCombatStartAsync));
         }
     }
 
